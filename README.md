@@ -1,7 +1,7 @@
 # portsec-4-dot1x-cleanup
 Cleanup conflicting switchport security features on access switches
 
-# This ansible playbook requires very little input, as its main purpose is to fully automate access layer switches having conflicting features enabled. In essence, we're removing #port-security command lines from switchports having both port-security & dot1x enabled This script was written for Cisco Catalyst 3xxx platform IOS-XE system.
+# This ansible playbook requires very little input, as its main purpose is to fully automate access layer switches having conflicting features enabled. In essence, we're removing port-security command lines from switchports having both port-security & dot1x enabled This script was written for Cisco Catalyst 3xxx platform IOS-XE system.
 
 The script will launch 2 separated "show" commands for both port-security & dot1x features to the targeted switch.
 Command output will be saved into separated command & switch files for further parsing comparison
