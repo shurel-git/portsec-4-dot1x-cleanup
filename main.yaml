@@ -1,0 +1,8 @@
+---
+- hosts: leaf
+  tags: Cisco_ios
+  gather_facts: false
+  connection: network_cli
+
+  roles:
+  - parse

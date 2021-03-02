@@ -1,0 +1,20 @@
+# This is the default ansible 'hosts' file.
+#
+# It should live in /etc/ansible/hosts
+#
+#   - Comments begin with the '#' character
+#   - Blank lines are ignored
+#   - Groups of hosts are delimited by [header] elements
+#   - You can enter hostnames or ip addresses
+#   - A hostname/ip can be a member of multiple groups
+
+# Ex 1: Ungrouped hosts, specify before any group headers.
+[leaf]
+switch1 ansible_network_os=ios
+switch2 ansible_network_os=ios
+
+[leaf:vars]
+ansible_user=username
+ansible_password=password
+ansible_become_password=password
+

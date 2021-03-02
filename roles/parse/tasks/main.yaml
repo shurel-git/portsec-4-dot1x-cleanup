@@ -1,0 +1,98 @@
+- name: Get Cisco IOS interface port-security config
+  ios_command:
+    commands:
+    - 'show port-security'
+  register: portsec_interface
+
+- name: Get Cisco IOS interface port-security config
+  ios_command:
+    commands:
+    - 'show dot1x all'
+  register: dot1x_interface
+
+- name: write interfaces show port-security output to file
+  delegate_to: localhost
+  blockinfile:
+    create : yes
+    path: "group_vars/portsec_{{ inventory_hostname }}.json"
+    block: |
+      "{{ portsec_interface.stdout_lines | to_nice_json(indent=1) }}"
+
+- name: write interfaces show dot1x all output to file
+  delegate_to: localhost
+  blockinfile:
+    create : yes
+    path: "group_vars/dot1x_{{ inventory_hostname }}.json"
+    block: |
+      "{{ dot1x_interface.stdout_lines | to_nice_json(indent=1) }}"
+
+- name: Rename interface output from dot1x cmd from GigabitEthernetx/x to Gix/x for later comparison
+  replace:
+    path: group_vars/dot1x_{{ inventory_hostname }}.json
+    regexp: '(?:GigabitEthernet)'
+    replace: 'Gi'
+
+- name: extract interesting interfaces with port-security from file and save to var=result_portsec
+  shell: |
+    egrep -o '(Gi[[:digit:]](/)[[:digit:]](/)[[:digit:]]+)' group_vars/portsec_{{ inventory_hostname }}.json
+  register: result_portsec
+  ignore_errors: yes
+
+- name: extract interesting interfaces with dot1x from file and save to var=result_dot1x
+  shell: |
+    egrep -o '(Gi[[:digit:]](/)[[:digit:]](/)[[:digit:]]+)' group_vars/dot1x_{{ inventory_hostname }}.json
+  register: result_dot1x
+  ignore_errors: yes
+
+- name: create backup_job.log file with Cisco IOS commands to template (ios_command lack of templating)
+  template:
+    src="group_vars/backup_job.j2"
+    dest="group_vars/backup_job_{{ inventory_hostname }}.log"
+
+- name: Grab the commands from the .log file
+  shell: |
+    egrep -o '*.*' group_vars/backup_job_{{ inventory_hostname }}.log
+  register: cmd_grep
+  ignore_errors: yes
+
+- name: Saving all interfaces config with port-security enabled
+  ios_command:
+    commands: '{{ cmd_grep.stdout_lines }}'
+  register: cmd_output
+
+- name: write interfaces config
+  delegate_to: localhost
+  lineinfile:
+    create : yes
+    path: "group_vars/backup_{{ inventory_hostname }}.json"
+    line: "{{ cmd_output | to_nice_json(indent=2) }}"  
+
+
+- name: Register the portsec_interface as var
+  shell: | 
+    cat group_vars/portsec_{{ inventory_hostname }}.json | egrep  -o '(Gi[[:digit:]](/)[[:digit:]](/)[[:digit:]]+)'
+  register: int_portsec
+
+- name: Register the dot1x_interface as var
+  shell: |
+    cat group_vars/dot1x_{{ inventory_hostname }}.json | egrep  -o '(Gi[[:digit:]](/)[[:digit:]](/)[[:digit:]]+)'
+  register: int_dot1x
+
+- name: Transform both command output as list and save them as var=int_clean
+  debug:
+     msg: "compare interfaces from both cmd..."
+  with_list:  "{{ lookup('list', int_portsec.stdout_lines, wantlist=True ) }} ==  {{ lookup('list', int_dot1x.stdout_lines, wantlist=True) }}" 
+  register: int_clean
+
+- name : Retain interfaces having both port-security & dot1x enabled
+  set_fact:
+      int_clean: "{{ int_portsec.stdout_lines | intersect(int_dot1x.stdout_lines) }}"
+
+- name: Remove port-security from the devices meeting the conditions
+  ios_config:
+    src: "group_vars/leaf.j2"
+
+- name: save running-config to startup-config
+  ios_config:
+    save_when: modified
+

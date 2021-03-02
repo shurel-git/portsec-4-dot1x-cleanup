@@ -1,0 +1,10 @@
+{% set var = result_portsec.stdout_lines %}
+
+{% for int in var %}
+{% if int|length %}
+show running-config interface {{ int }}
+{% else %}
+show running-config | section interface
+{% endif %}
+{% endfor %}
+
